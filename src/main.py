@@ -8,6 +8,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from dotenv import load_dotenv
+load_dotenv()
+
 import discord
 from discord.ext import commands
 from src.config import Config
@@ -20,8 +22,6 @@ from src.commands.disconnect import disconnect_command
 from src.commands.help import help_command
 from src.bridge.server import BridgeServer
 from src.database.database import Database
-
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
