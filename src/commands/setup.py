@@ -1,6 +1,5 @@
 import discord
 from discord import app_commands
-from discord.ext import pages
 import os
 
 ROBLOX_SCRIPT = '''-- Roblox Control Bridge Client
@@ -21,20 +20,12 @@ local function sendCommand(command, params)
     })
     local success, err = pcall(function()
         HttpService:PostAsync(
-            string.format("ws://%%s:%%d/bridge", BRIDGE_HOST, BRIDGE_PORT),
+            string.format("http://%%s:%%d/bridge", BRIDGE_HOST, BRIDGE_PORT),
             message
         )
     end)
 end
 
-local function handleResponse(data)
-    local decoded = HttpService:JSONDecode(data)
-    if decoded.type == "response" then
-        print("Command response:", decoded.command, decoded.success)
-    end
-end
-
--- Wait for authentication
 local function authenticate()
     local authData = HttpService:JSONEncode({
         type = "auth",
@@ -47,52 +38,39 @@ end
 
 authenticate()
 
--- Expose control functions
 return {
-    move = function(direction)
-        sendCommand("move", {direction = direction})
-    end,
-    jump = function()
-        sendCommand("jump")
-    end,
-    sit = function()
-        sendCommand("sit")
-    end,
-    stand = function()
-        sendCommand("stand")
-    end,
-    reset = function()
-        sendCommand("reset")
-    end,
-    executeScript = function(script)
-        sendCommand("execute", {script = script})
-    end
+    move = function(direction) sendCommand("move", {direction = direction}) end,
+    jump = function() sendCommand("jump") end,
+    sit = function() sendCommand("sit") end,
+    stand = function() sendCommand("stand") end,
+    reset = function() sendCommand("reset") end,
+    executeScript = function(script) sendCommand("execute", {script = script}) end
 }
 '''
 
 @app_commands.command(name='setup', description='Generate Roblox-side setup script')
 async def setup_command(interaction: discord.Interaction):
     bridge_host = os.getenv('BRIDGE_HOST', 'localhost')
-    bridge_port = os.getenv('BRIDGE_PORT', '3000')
+    bridge_port = int(os.getenv('BRIDGE_PORT', '3000'))
     bridge_secret = os.getenv('BRIDGE_SECRET', 'secret')
-    
+
     script_content = ROBLOX_SCRIPT % (bridge_host, bridge_port, bridge_secret)
-    
-    embed = discord.Embed(title='🔧 Roblox Control Setup', color=0x00ff00)
-    embed.add_field(name='📋 Setup Instructions', value='1. Create a LocalScript in StarterPlayerScripts\n2. Paste the script below into the LocalScript\n3. Save the script\n4. Join your Roblox experience\n5. Run /panel to open the control dashboard', inline=False)
-    embed.add_field(name='🌐 Bridge Configuration', value=f'Host: `{bridge_host}`\nPort: `{bridge_port}`\nSecret: `{bridge_secret}`', inline=False)
-    embed.add_field(name='📝 LocalScript Content', value='```lua\n' + script_content + '\n```', inline=False)
-    embed.add_field(name='✅ Connection Test', value='After pasting the script, join your experience and run `/panel` to verify connection.', inline=False)
-    
-    copy_button = discord.ui.Button(label='📋 Copy Script', style=discord.ButtonStyle.primary, custom_id='copy_script')
-    
-    class CopyView(discord.ui.View):
-        def __init__(self):
-            super().__init__()
-            self.add_item(copy_button)
-        
-        @discord.ui.button(label='📋 Copy Script', style=discord.ButtonStyle.primary, custom_id='copy_script')
-        async def copy_script(self, interaction: discord.Interaction, button: discord.ui.Button):
-            await interaction.response.send_message(f'Here is the script to copy:\n```lua\n{script_content}\n```', ephemeral=True)
-    
-    await interaction.response.send_message(embed=embed, view=CopyView())
+
+    # Discord embeds have a 1024-character field limit, so send the script as a file.
+    embed = discord.Embed(title='Roblox Control Setup', color=0x5865F2)
+    embed.add_field(
+        name='Setup Instructions',
+        value='1. Create a LocalScript in StarterPlayerScripts\n2. Paste the attached script\n3. Join your Roblox experience\n4. Run /panel to open the dashboard',
+        inline=False
+    )
+    embed.add_field(
+        name='Bridge Configuration',
+        value=f'Host: `{bridge_host}`\nPort: `{bridge_port}`',
+        inline=False
+    )
+
+    script_file = discord.File(
+        fp=__import__('io').BytesIO(script_content.encode('utf-8')),
+        filename='roblox_bridge.lua'
+    )
+    await interaction.response.send_message(embed=embed, file=script_file)
