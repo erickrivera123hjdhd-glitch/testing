@@ -1,9 +1,15 @@
 import os
-import asyncio
+import sys
 import logging
+
+# Allow imports like `from src...` when Wispbyte runs `python3 src/main.py`.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from dotenv import load_dotenv
 import discord
-from discord import app_commands
+from discord.ext import commands
 from src.config import Config
 from src.commands.setup import setup_command
 from src.commands.panel import panel_command
@@ -20,7 +26,8 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class RobloxControlBot(discord.Bot):
+
+class RobloxControlBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -29,6 +36,7 @@ class RobloxControlBot(discord.Bot):
         self.config = Config()
         self.db = Database()
         self.bridge_server = None
+
         self.tree.add_command(setup_command)
         self.tree.add_command(panel_command)
         self.tree.add_command(status_command)
@@ -45,10 +53,17 @@ class RobloxControlBot(discord.Bot):
             await self.bridge_server.start()
             logger.info('Bridge server started')
 
+
+bot = RobloxControlBot()
+
+
 @bot.event
 async def on_ready():
     logger.info(f'Logged in as {bot.user}')
 
+
 if __name__ == '__main__':
-    bot = RobloxControlBot()
-    bot.run(os.getenv('DISCORD_TOKEN'))
+    token = os.getenv('DISCORD_TOKEN')
+    if not token:
+        raise RuntimeError('DISCORD_TOKEN is not set')
+    bot.run(token)
